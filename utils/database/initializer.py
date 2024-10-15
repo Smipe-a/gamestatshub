@@ -52,28 +52,23 @@ def queries(name_table: str) -> str:
 
     return query[name_table]
 
-
 def _check_schema(cursor, schema_name: str) -> Optional[Tuple[str]]:
     cursor.execute('SELECT schema_name FROM information_schema.schemata WHERE schema_name = %s;', (schema_name,))
     return cursor.fetchone()
 
-
 def create_schema(cursor, schema_name: str) -> Optional[bool]:
     try:
         existing_schema = _check_schema(cursor, schema_name)
-
         if not existing_schema:
             cursor.execute(f'CREATE SCHEMA {schema_name};')
             connection.commit()
-            LOGGER.info(f'Schema "{schema_name}" has been successfully created in the database.')
+            LOGGER.info(f'Schema "{schema_name}" has been successfully created in the database')
         else:
             LOGGER.info(f'The schema "{schema_name}" already exist.')
         return True
-
     except Exception as e:
-        LOGGER.error(f'Error creating schema: {str(e).strip()}.')
+        LOGGER.error('Error creating schema:', str(e).strip())
         return None
-
 
 def create_table(cursor, schema_name: str, table_name: str) -> None:
     try:
@@ -83,31 +78,25 @@ def create_table(cursor, schema_name: str, table_name: str) -> None:
                             WHERE table_schema = %s AND table_name = %s
                             """
         cursor.execute(check_table_query, (schema_name, table_name))
-
         # If such a table is absent, we create it
         if cursor.fetchone() is None:
             cursor.execute(queries(table_name))
             connection.commit()
         else:
-            LOGGER.info(f'The table "{table_name}" in the schema "{schema_name}" already exist.')
-
+            LOGGER.info(f'The table "{table_name}" in the schema "{schema_name}" already exist')
     except Exception as e:
-        LOGGER.error(f'Error creating table: {str(e).strip()}.')
+        LOGGER.error('Error creating table:', str(e).strip())
 
 
 if __name__ == '__main__':
     with connect_to_database() as connection, connection.cursor() as cursor:
         created_tables = 0
         is_exist_schema = create_schema(cursor, 'public')
-        
         for table_name in DATABASE_TABLES:
             if not is_exist_schema:
                 LOGGER.warning('Failed to initialize the database.')
                 break
-
             create_table(cursor, 'public', table_name)
             created_tables += 1
-                
-        
         LOGGER.info(f'Successfully created {created_tables} tables ' \
-                    f'out of {len(DATABASE_TABLES)} for schema "public".')
+                    f'out of {len(DATABASE_TABLES)} for schema "public"')

@@ -1,4 +1,4 @@
-from psycopg2 import connect, extensions, OperationalError
+from psycopg2 import connect, extensions, OperationalError, Error
 from typing import List, Any
 from decouple import config
 from utils.constants import DATABASE_INFO_FILE_LOG
@@ -17,9 +17,8 @@ def connect_to_database() -> extensions.connection:
             port='5432'
         ) as current_connection:
             return current_connection
-
     except OperationalError as e:
-        LOGGER.fatal(f'Error connecting to the database: {str(e).strip()}.')
+        LOGGER.fatal(f'Error connecting to the database:', {str(e).strip()})
         raise
 
 def insert_data(connection: extensions.connection, 
@@ -34,8 +33,6 @@ def insert_data(connection: extensions.connection,
                 """
             cursor.executemany(query, data)
             connection.commit()
-
-    except Exception as e:
+    except Error as e:
         connection.rollback()
-        LOGGER.error(f'Error inserting data into "{schema_name}.{table_name}": {str(e)}.')
-        raise
+        raise Error(f'Error inserting data into "{schema_name}.{table_name}":', str(e).strip())

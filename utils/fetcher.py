@@ -17,13 +17,11 @@ class Fetcher:
                 response = requests.get(url, headers=self.headers)
                 response.raise_for_status()
                 return response.content
-
             except requests.RequestException as e:
                 if isinstance(e, requests.exceptions.ConnectionError) and '104' in str(e):
                     attempt += 1
                     sleep(delay)
                 else:
                     raise e
-        
         error_message = f'Failed to complete request after {retries} attempts.'
         raise requests.RequestException(error_message)
