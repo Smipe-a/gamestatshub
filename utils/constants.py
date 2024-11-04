@@ -11,6 +11,10 @@ PROJECT_DIRECTORY: str = os.path.abspath(os.path.join(os.path.dirname(__file__),
 LOG_CATALOG: str = 'logs'
 
 DATABASE_INFO_FILE_LOG: str = 'database_info.log'
-PLAYERS_FILE_LOG: str = 'players.log'
-GAMES_FILE_LOG: str = 'games.log'
-ACHIEVEMENTS_HISTORY: str = 'achievements_history.log'
+# Prefixes P_ - PlayStation; S_ - Steam
+P_PLAYERS_FILE_LOG: str = 'p_players.log'
+P_GAMES_FILE_LOG: str = 'p_games.log'
+P_ACHIEVEMENTS_HISTORY_FILE_LOG: str = 'p_achievements_history.log'
+S_PLAYERS_FILE_LOG: str = 's_players.log'
+S_GAMES_FILE_LOG: str = 's_games.log'
+S_ACHIEVEMENTS_HISTORY_FILE_LOG: str = 's_achievements_history.log'

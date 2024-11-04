@@ -3,6 +3,9 @@ from time import sleep
 import requests
 
 
+class TooManyRequestsError(Exception):
+    pass
+
 class Fetcher:
     def __init__(self):
         self.headers = {
@@ -10,15 +13,23 @@ class Fetcher:
                           'Chrome/91.0.4472.124 Safari/537.36'
         }
 
-    def fetch_data(self, url: str, retries: int = 3, delay: int = 1) -> Optional[Any]:
+    def fetch_data(self, url: str, content_type: str = 'html', retries: int = 3, delay: int = 1) -> Optional[Any]:
         attempt = 0
         while attempt < retries:
             try:
                 response = requests.get(url, headers=self.headers)
                 response.raise_for_status()
-                return response.content
+                if content_type == 'json':
+                    return response.json()
+                elif content_type == 'html':
+                    return response.content
+                else:
+                    raise TypeError(f'Unsupported content type: {content_type}.')
             except requests.RequestException as e:
-                if isinstance(e, requests.exceptions.ConnectionError) and '104' in str(e):
+                if response.status_code == 429:
+                    print('Too many requests. Waiting for 5 minute...')
+                    raise TooManyRequestsError
+                elif isinstance(e, requests.exceptions.ConnectionError) and '104' in str(e):
                     attempt += 1
                     sleep(delay)
                 else:
