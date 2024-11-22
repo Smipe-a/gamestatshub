@@ -2,8 +2,8 @@ from bs4 import BeautifulSoup
 from typing import Optional
 from time import sleep
 import psycopg2
-from utils.database.connector import connect_to_database, insert_data
 from utils.constants import DATABASE_TABLES, PLAYSTATION_SCHEMA, P_PLAYERS_FILE_LOG
+from utils.database.connector import connect_to_database, insert_data
 from utils.logger import configure_logger
 from utils.fetcher import Fetcher
 

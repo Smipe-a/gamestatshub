@@ -171,8 +171,8 @@ class SteamGames(Fetcher):
                         dump_appids.add(appid)
                     except Error as e:
                         LOGGER.warning(e)
-                        LOGGER.warning(f'The given appid "{appid}"
-                                       was not successfully inserted/deleted into the database')
+                        LOGGER.warning(f'The given appid "{appid}"' \
+                                       f'was not successfully inserted/deleted into the database')
                 else:
                     try:
                         delete_data(connection, STEAM_SCHEMA, DATABASE_TABLES[0], [[appid]])

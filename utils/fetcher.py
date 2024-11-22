@@ -20,7 +20,7 @@ class Fetcher:
             response = requests.get(url, headers=self.headers)
             response.raise_for_status()
             if content_type == 'json':
-                return response.json()
+                return response.json()   
             elif content_type == 'html':
                 return response.content
             else:
@@ -33,8 +33,8 @@ class Fetcher:
             if response.status_code == 429:
                 print('Too many requests. Waiting for 5 minute...')
                 raise TooManyRequestsError
-            elif response.status_code == 403:
-                # It is unclear why a 403 is being caught
+            elif response.status_code in {403, 502}:
+                # It is unclear why a 403, 502 is being caught
                 raise ForbiddenError
             else:
                 raise e

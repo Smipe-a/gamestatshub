@@ -47,7 +47,6 @@ class PSNGames(Fetcher):
             last_page = self._get_last_page()
             if last_page:
                 for page in range(1, last_page + 1):
-                    print(page)
                     # Default values
                     games, achievements = [], []
                     try:
@@ -84,13 +83,11 @@ class PSNGames(Fetcher):
                             for block in game_info.find_all('tr'):
                                 attribute = block.find('td').text
                                 if attribute in {'Developers', 'Developer'}:
-                                    developers = block.find('a').text.strip()
+                                    developers = [developer.text.strip() for developer in block.find_all('a')]
                                 elif attribute in {'Publishers', 'Publisher'}:
-                                    publishers = block.find('a').text.strip()
+                                    publishers = [publisher.text.strip() for publisher in block.find_all('a')]
                                 elif attribute in {'Genres', 'Genre'}:
-                                    genres = []
-                                    for genre in block.find_all('a'):
-                                        genres.append(genre.text.strip())
+                                    genres = [genre.text.strip() for genre in block.find_all('a')]
                                 elif attribute in {'Releases', 'Release'}:
                                     release = self._format_date(block.find_all(
                                         'td')[1].text.strip().split('\n')[1].split('\t')[-1])
