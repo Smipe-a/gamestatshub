@@ -1,12 +1,14 @@
-from concurrent.futures import ThreadPoolExecutor
-from typing import Generator, Optional, List
+from requests.exceptions import JSONDecodeError
 from psycopg2 import extensions, Error
-from bs4 import BeautifulSoup
+from typing import Optional, List, Set
 from datetime import datetime
+from decouple import config
 from time import sleep
-from utils.constants import STEAM_SCHEMA, DATABASE_TABLES, S_GAMES_FILE_LOG
-from utils.database.connector import connect_to_database, insert_data
-from utils.fetcher import Fetcher, TooManyRequestsError
+import pickle
+from utils.database.connector import connect_to_database, insert_data, delete_data
+from utils.constants import (STEAM_SCHEMA, DATABASE_TABLES, S_GAMES_FILE_LOG,
+                             CACHE_APPIDS, CACHE_ACHIEVEMENTS)
+from utils.fetcher import Fetcher, TooManyRequestsError, ForbiddenError
 from utils.logger import configure_logger
 
 LOGGER = configure_logger(__name__, S_GAMES_FILE_LOG)
@@ -15,63 +17,76 @@ LOGGER = configure_logger(__name__, S_GAMES_FILE_LOG)
 class SteamAchievements(Fetcher):
     def __init__(self):
         super().__init__()
-        self.url = 'https://steamcommunity.com/stats/{}/achievements'
-    
-    @staticmethod
-    def _create_batches(appids: List[int], batch_size: int = 50) -> Generator[List[int], None, None]:
-        for i in range(0, len(appids), batch_size):
-            yield appids[i:i + batch_size]
+        self.achievements = 'https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?appid={}&key={}&cc=us'
 
     @staticmethod
-    def _get_appids(connection: extensions.connection) -> List[int]:
+    def _get_appids(connection: extensions.connection,
+                    dump_achievements: Set[Optional[int]]) -> Set[Optional[int]]:
         with connection.cursor() as cursor:
             query = """
                 SELECT game_id
-                FROM steam.games
-                WHERE game_id NOT IN (SELECT game_id FROM steam.achievements)
-                ORDER BY game_id;
+                FROM steam.games;
             """
             cursor.execute(query)
-            return [appid[0] for appid in cursor.fetchall()]
+            appids = [appid[0] for appid in cursor.fetchall()]
+            return {appid for appid in appids if appid not in dump_achievements}
 
-    def get_achievements(self, connection: extensions.connection, appids: List[int]):
+    def get_achievements(self, connection: extensions.connection, appid: int,
+                         dump_achievements: Set[Optional[int]]):
         all_achievements = []
-        for id in appids:
-            print(id)
-            html_content = self.fetch_data(self.url.format(id))
-            soup = BeautifulSoup(html_content, 'html.parser')
-            try:
-                achievements = soup.find('div', id='mainContents').find_all('div', class_='achieveRow')
-            except AttributeError:
-                # AttributeError occurs when the game has no achievements
-                continue
-            for number, achievement in enumerate(achievements, 1):
-                # achievement_id is constructed as -> achievement_number + 'g' + game_id
-                achievement_id = f'{number}g{id}'
-                title = achievement.find('div', class_='achieveTxt').find('h3').text.strip()
-                description = achievement.find('div', class_='achieveTxt').find('h5').text.strip()
-                if description == '':
-                    description = None
-                all_achievements.append([achievement_id, id, title, description])
+        url = self.achievements.format(appid, config('API_KEY'))
+        try:
+            json_content = self.fetch_data(url, 'json')
+        except TooManyRequestsError:
+            # The Steam Web API restricts data retrieval to 200 requests every 5 minutes
+            sleep(305)
+            json_content = self.fetch_data(url, 'json')
+        except UnboundLocalError as e:
+            # Sometimes, Steam enforces a forced connection termination
+            LOGGER.warning(e)
+            sleep(5)
+            json_content = self.fetch_data(url, 'json')
+        except ForbiddenError:
+            # Further handle this error
+            return
+        achievements = json_content.get('game', {}).get('availableGameStats', {}).get('achievements', [])
+        for achievement in achievements:
+            all_achievements.append([
+                f"{appid}_{achievement['name']}",
+                appid,
+                achievement['displayName'],
+                achievement.get('description', None)
+            ])
         try:
             # DATABASE_TABLES[1] = 'achievements'
             insert_data(connection, STEAM_SCHEMA, DATABASE_TABLES[1], all_achievements)
+            dump_achievements.add(appid)
         except Error as e:
             LOGGER.warning(e)
+        except IndexError:
+            # There is no achievement data for the game
+            dump_achievements.add(appid)
+        # Updating the achievements dump
+        with open(CACHE_ACHIEVEMENTS, 'wb') as file:
+            pickle.dump(dump_achievements, file)
     
     def start(self):
         with connect_to_database() as connection:
-            appids = list(self._create_batches(self._get_appids(connection)))
-            with ThreadPoolExecutor() as executor:
-                for batch in appids:
-                    executor.submit(self.get_achievements, connection, batch)
-
+            try:
+                with open(CACHE_ACHIEVEMENTS, 'rb') as file:
+                    dump_achievements = pickle.load(file)
+            except FileNotFoundError:
+                dump_achievements = set()
+            # Retrieving all appids whose achievements are not present in our database
+            appids = self._get_appids(connection, dump_achievements)
+            for appid in appids:
+                self.get_achievements(connection, appid, dump_achievements)
 
 class SteamGames(Fetcher):
     def __init__(self):
         super().__init__()
         self.applist = 'https://api.steampowered.com/ISteamApps/GetAppList/v0002/?format=json'
-        self.appdetails = 'https://store.steampowered.com/api/appdetails?appids='
+        self.appdetails = 'https://store.steampowered.com/api/appdetails?appids={}&cc=us'
     
     @staticmethod
     def _format_date(date: str) -> Optional[str]:
@@ -100,17 +115,35 @@ class SteamGames(Fetcher):
                 formatted_languages.append(language)
         return formatted_languages if formatted_languages else None
 
-    def get_games(self, connection: extensions.connection, appids: List[int]):
-        for id in appids:
+    def get_games(self, connection: extensions.connection, appids: List[int],
+                  dump_appids: Set[Optional[int]]):
+        url = self.appdetails.format(appid)
+        for appid in appids:
             try:
-                json_content = self.fetch_data(f'{self.appdetails}{id}', 'json')
+                json_content = self.fetch_data(url, 'json')
             except TooManyRequestsError:
                 # The Steam Web API restricts data retrieval to 200 requests every 5 minutes
-                sleep(305)
-                json_content = self.fetch_data(f'{self.appdetails}{id}', 'json')
-            if json_content[str(id)]['success']:
-                data = json_content[str(id)]['data']
+                sleep(301)
+                json_content = self.fetch_data(url, 'json')
+            except JSONDecodeError:
+                try:
+                    delete_data(connection, STEAM_SCHEMA, DATABASE_TABLES[0], [[appid]])
+                    dump_appids.add(appid)
+                except Error as e:
+                    LOGGER.warning(e)
+                continue
+            except UnboundLocalError as e:
+                # Sometimes, Steam enforces a forced connection termination
+                LOGGER.warning(e)
+                sleep(5)
+                json_content = self.fetch_data(url, 'json')
+            if json_content[str(appid)]['success']:
+                data = json_content[str(appid)]['data']
                 coming_soon = data.get('release_date', {}).get('coming_soon', True)
+                if data['type'] != 'game':
+                    # We do not add games marked as 'coming soon' to the dump,
+                    # as the data for these games will be updated later
+                    dump_appids.add(appid)
                 # Games that have not yet been released,
                 # as well as DLCs, Tools, Soundtracks, etc., are not included in the database
                 if not coming_soon and data['type'] == 'game':
@@ -128,25 +161,70 @@ class SteamGames(Fetcher):
                     release_date = self._format_date(
                         data.get('release_date', {}).get('date', None)) if not coming_soon else None
                     game = [[
-                        id, title, developers, publishers,
+                        appid, title, developers, publishers,
                         genres, supported_languages, release_date
                     ]]
                     try:
                         # DATABASE_TABLES[0] = 'games'
+                        delete_data(connection, STEAM_SCHEMA, DATABASE_TABLES[0], [[appid]])
                         insert_data(connection, STEAM_SCHEMA, DATABASE_TABLES[0], game)
+                        dump_appids.add(appid)
                     except Error as e:
                         LOGGER.warning(e)
-                        LOGGER.warning(f'The given appid "{id}" was not successfully inserted into the database')
-    
+                        LOGGER.warning(f'The given appid "{appid}"
+                                       was not successfully inserted/deleted into the database')
+                else:
+                    try:
+                        delete_data(connection, STEAM_SCHEMA, DATABASE_TABLES[0], [[appid]])
+                    except Error:
+                        LOGGER.warning(e)
+            else:
+                try:
+                    delete_data(connection, STEAM_SCHEMA, DATABASE_TABLES[0], [[appid]])
+                    dump_appids.add(appid)
+                except Error:
+                    LOGGER.warning(e)
+            # Recording the processed game data into the dump
+            # Poor implementation, as Steam can terminate the connection at any moment
+            with open(CACHE_APPIDS, 'wb') as file:
+                pickle.dump(dump_appids, file)
+
     def start(self):
         with connect_to_database() as connection:
+            json_content = self.fetch_data(self.applist, 'json').get('applist', {}).get('apps', [])
+            # Retrieving the cache of the most recent appids data available in postgres
             try:
-                json_content = self.fetch_data(self.applist, 'json')
-            except Exception:
-                LOGGER.error(f'')
-                return
-            appids = [app.get('appid') for app in json_content.get('applist', {}).get('apps', [])]
-            self.get_games(connection, appids)
+                with open(CACHE_APPIDS, 'rb') as file:
+                    dump_appids = pickle.load(file)
+            except FileNotFoundError:
+                dump_appids = set()
+            appids = []
+            # Retrieving a list of new games not present in our database
+            for app in json_content:
+                if app.get('name', None) and app['appid'] not in dump_appids:
+                    appids.append([app['appid'], app['name'], None, None, None, None, None])
+            try:
+                insert_data(connection, STEAM_SCHEMA, DATABASE_TABLES[0], appids)
+            except Error as e:
+                LOGGER.warning(e)
+            except IndexError as e:
+                LOGGER.warning(e)
+            # This is done through the initial initialization followed by data updates,
+            # because the original JSON received from the Steam Web API
+            # lacks a clear data order structure
+            query = """
+                SELECT game_id
+                FROM steam.games
+                WHERE developers IS NULL AND
+                      publishers IS NULL AND
+                      genres IS NULL AND
+                      supported_languages IS NULL AND
+                      release_date IS NULL;
+                """
+            with connection.cursor() as cursor:
+                cursor.execute(query)
+                appids = [appid[0] for appid in cursor.fetchall()]
+            self.get_games(connection, appids, dump_appids)
 
 def main(process):
     processes = {

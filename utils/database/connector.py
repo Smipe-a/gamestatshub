@@ -36,3 +36,19 @@ def insert_data(connection: extensions.connection,
     except Error as e:
         connection.rollback()
         raise Error(f'Error inserting data into "{schema_name}.{table_name}":', str(e).strip())
+    except IndexError:
+        raise IndexError('Attempt to insert an empty number of rows into the database')
+
+def delete_data(connection: extensions.connection,
+                schema_name: str, table_name: str, data: List[List[Any]]) -> None:
+    try:
+        with connection.cursor() as cursor:
+            query = f"""
+                DELETE FROM {schema_name}.{table_name}
+                WHERE game_id = %s;
+                """
+            cursor.executemany(query, data)
+            connection.commit()
+    except Error as e:
+        connection.rollback()
+        raise Error(e)

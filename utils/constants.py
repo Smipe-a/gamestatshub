@@ -18,3 +18,6 @@ P_ACHIEVEMENTS_HISTORY_FILE_LOG: str = 'p_achievements_history.log'
 S_PLAYERS_FILE_LOG: str = 's_players.log'
 S_GAMES_FILE_LOG: str = 's_games.log'
 S_ACHIEVEMENTS_HISTORY_FILE_LOG: str = 's_achievements_history.log'
+
+CACHE_APPIDS: str = 'appids.pkl'
+CACHE_ACHIEVEMENTS: str = 'achievements.pkl'
