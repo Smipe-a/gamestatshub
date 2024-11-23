@@ -47,7 +47,11 @@ class SteamAchievements(Fetcher):
             sleep(5)
             json_content = self.fetch_data(url, 'json')
         except ForbiddenError:
-            # Further handle this error
+            # The exception captures playtest data that lacks a JSON structure
+            dump_achievements.add(appid)
+            # Updating the achievements dump
+            with open(CACHE_ACHIEVEMENTS, 'wb') as file:
+                pickle.dump(dump_achievements, file)
             return
         achievements = json_content.get('game', {}).get('availableGameStats', {}).get('achievements', [])
         for achievement in achievements:
@@ -117,8 +121,8 @@ class SteamGames(Fetcher):
 
     def get_games(self, connection: extensions.connection, appids: List[int],
                   dump_appids: Set[Optional[int]]):
-        url = self.appdetails.format(appid)
         for appid in appids:
+            url = self.appdetails.format(appid)
             try:
                 json_content = self.fetch_data(url, 'json')
             except TooManyRequestsError:

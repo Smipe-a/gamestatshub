@@ -6,8 +6,8 @@ import psycopg2
 import re
 from utils.constants import DATABASE_TABLES, PLAYSTATION_SCHEMA, P_GAMES_FILE_LOG
 from utils.database.connector import connect_to_database, insert_data
+from utils.fetcher import Fetcher, TooManyRequestsError
 from utils.logger import configure_logger
-from utils.fetcher import Fetcher
 
 LOGGER = configure_logger(__name__, P_GAMES_FILE_LOG)
 
@@ -52,6 +52,10 @@ class PSNGames(Fetcher):
                     try:
                         html_content = self.fetch_data(f'{self.url}/games?page={page}')
                         soup = BeautifulSoup(html_content, 'html.parser')
+                    except TooManyRequestsError:
+                        sleep(10)
+                        html_content = self.fetch_data(f'{self.url}/games?page={page}')
+                        soup = BeautifulSoup(html_content, 'html.parser')
                     except Exception as e:
                         LOGGER.warning(f'Failed to retrieve the code ' \
                                        f'of page "{page}". Error:', str(e).strip())
@@ -71,6 +75,10 @@ class PSNGames(Fetcher):
                             region = game.text.strip().split(' • ')[-1]
                         # Delve into each game URL
                         try:
+                            html_content = self.fetch_data(f'{self.url}{game_url}')
+                            soup = BeautifulSoup(html_content, 'html.parser')
+                        except TooManyRequestsError:
+                            sleep(10)
                             html_content = self.fetch_data(f'{self.url}{game_url}')
                             soup = BeautifulSoup(html_content, 'html.parser')
                         except Exception as e:
@@ -123,6 +131,10 @@ class PSNGames(Fetcher):
                         if check_guide:
                             guide_url = check_guide.find('a').get('href')
                             try:
+                                html_content = self.fetch_data(f'{self.url}{guide_url}')
+                                soup = BeautifulSoup(html_content, 'html.parser')
+                            except TooManyRequestsError:
+                                sleep(10)
                                 html_content = self.fetch_data(f'{self.url}{guide_url}')
                                 soup = BeautifulSoup(html_content, 'html.parser')
                             except Exception as e:
