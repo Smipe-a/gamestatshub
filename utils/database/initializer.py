@@ -85,6 +85,12 @@ def queries(schema_name: str, table_name: str) -> Optional[str]:
                     date_acquired TIMESTAMP,
                     PRIMARY KEY (player_id, achievement_id)
                 );
+            """,
+            'purchased_games': """
+                CREATE TABLE steam.purchased_games (
+                    player_id TEXT PRIMARY KEY REFERENCES steam.players (player_id) ON DELETE CASCADE,
+                    library INT[]
+                );
             """
         }
     }

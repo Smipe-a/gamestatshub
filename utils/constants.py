@@ -1,7 +1,7 @@
 from typing import List
 import os
 
-DATABASE_TABLES: List[str] = ['games', 'achievements', 'players', 'achievements_history']
+DATABASE_TABLES: List[str] = ['games', 'achievements', 'players', 'achievements_history', 'purchased_games']
 PLAYSTATION_SCHEMA: str = 'playstation'
 STEAM_SCHEMA: str = 'steam'
 
