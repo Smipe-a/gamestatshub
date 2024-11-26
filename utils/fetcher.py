@@ -33,8 +33,8 @@ class Fetcher:
             if response.status_code == 429:
                 print('Too many requests. Waiting for 5 minute...')
                 raise TooManyRequestsError
-            elif response.status_code in {403, 502}:
-                # It is unclear why a 403, 502 is being caught
+            elif response.status_code in {401, 403, 502}:
+                # It is unclear why a 401, 403, 502 is being caught
                 raise ForbiddenError
             else:
                 raise e

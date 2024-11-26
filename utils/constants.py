@@ -21,3 +21,4 @@ S_ACHIEVEMENTS_HISTORY_FILE_LOG: str = 's_achievements_history.log'
 
 CACHE_APPIDS: str = 'appids.pkl'
 CACHE_ACHIEVEMENTS: str = 'achievements.pkl'
+CASHE_PLAYERS: str = 'players.pkl'
