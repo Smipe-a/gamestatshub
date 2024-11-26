@@ -131,7 +131,7 @@ class SteamGames(Fetcher):
                 json_content = self.fetch_data(url, 'json')
             except JSONDecodeError:
                 try:
-                    delete_data(connection, STEAM_SCHEMA, DATABASE_TABLES[0], [[appid]])
+                    delete_data(connection, STEAM_SCHEMA, DATABASE_TABLES[0], 'game_id', [[appid]])
                     dump_appids.add(appid)
                 except Error as e:
                     LOGGER.warning(e)
@@ -170,7 +170,7 @@ class SteamGames(Fetcher):
                     ]]
                     try:
                         # DATABASE_TABLES[0] = 'games'
-                        delete_data(connection, STEAM_SCHEMA, DATABASE_TABLES[0], [[appid]])
+                        delete_data(connection, STEAM_SCHEMA, DATABASE_TABLES[0], 'game_id', [[appid]])
                         insert_data(connection, STEAM_SCHEMA, DATABASE_TABLES[0], game)
                         dump_appids.add(appid)
                     except Error as e:
@@ -179,12 +179,12 @@ class SteamGames(Fetcher):
                                        f'was not successfully inserted/deleted into the database')
                 else:
                     try:
-                        delete_data(connection, STEAM_SCHEMA, DATABASE_TABLES[0], [[appid]])
+                        delete_data(connection, STEAM_SCHEMA, DATABASE_TABLES[0], 'game_id', [[appid]])
                     except Error:
                         LOGGER.warning(e)
             else:
                 try:
-                    delete_data(connection, STEAM_SCHEMA, DATABASE_TABLES[0], [[appid]])
+                    delete_data(connection, STEAM_SCHEMA, DATABASE_TABLES[0], 'game_id', [[appid]])
                     dump_appids.add(appid)
                 except Error:
                     LOGGER.warning(e)

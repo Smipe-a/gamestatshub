@@ -1,4 +1,4 @@
-from typing import Generator, Optional, List, Set
+from typing import Generator, Optional, Union, List, Set
 from concurrent.futures import ThreadPoolExecutor
 from psycopg2 import Error, extensions
 from datetime import datetime
@@ -6,7 +6,7 @@ from decouple import config
 from utils.constants import STEAM_SCHEMA, DATABASE_TABLES, S_ACHIEVEMENTS_HISTORY_FILE_LOG
 from utils.database.connector import connect_to_database, insert_data, delete_data
 from utils.logger import configure_logger
-from utils.fetcher import Fetcher
+from utils.fetcher import Fetcher, ForbiddenError
 
 LOGGER = configure_logger(__name__, S_ACHIEVEMENTS_HISTORY_FILE_LOG)
 
@@ -30,14 +30,21 @@ class SteamAchievementsHistory(Fetcher):
             return [steamid[0] for steamid in cursor.fetchall()]
     
     @staticmethod
-    def _get_appids_achievements(connection: extensions.connection) -> Set[int]:
+    def _get_appids_achievements(connection: extensions.connection,
+                                 condition: str) -> Set[Union[int, str]]:
         with connection.cursor() as cursor:
-            query = """
-                SELECT DISTINCT game_id
-                FROM steam.achievements;
-            """
-            cursor.execute(query)
-            return {appid[0] for appid in cursor.fetchall()}
+            queries = {
+                'games': """
+                    SELECT DISTINCT game_id
+                    FROM steam.achievements;
+                """,
+                'achievements': """
+                    SELECT achievement_id
+                    FROM steam.achievements;
+                """
+            }
+            cursor.execute(queries[condition])
+            return {value[0] for value in cursor.fetchall()}
 
     @staticmethod
     def _format_timestamp(timestamp: int) -> str:
@@ -49,32 +56,49 @@ class SteamAchievementsHistory(Fetcher):
         for i in range(0, len(appids), batch_size):
             yield appids[i:i + batch_size]
 
-    def get_data_from_steam(self, steamid: str,
-                         owned_games: List[Optional[int]],
-                         library: List[Optional[int]],
-                         game_achievements: List[Optional[int]],
-                         appids: Set[int]):
+    def get_data_from_steam(self,
+                            steamid: str,
+                            owned_games: List[Optional[int]],
+                            library: List[Optional[int]],
+                            game_achievements: List[Optional[int]],
+                            appids: Set[int],
+                            db_achievements: Set[str]):
         for game in owned_games:
             appid = game['appid']
             if appid in appids:
-                json_content = self.fetch_data(self.achievements.format(appid, config('API_KEY'), steamid), 'json')
+                try:
+                    json_content = self.fetch_data(
+                        self.achievements.format(appid, config('API_KEY'), steamid), 'json')
+                except ForbiddenError:
+                    # The player's profile is not private, but the game statistics are hidden
+                    library.clear()
+                    return
                 achievements = json_content.get('playerstats', {}).get('achievements', [])
                 for achievement in achievements:
-                    if achievement['achieved']:
+                    achievement_id = f"{appid}_{achievement['apiname']}"
+                    if achievement['achieved'] and achievement_id in db_achievements:
                         game_achievements.append([
                             steamid,
-                            f"{appid}_{achievement['apiname']}",
+                            achievement_id,
                             self._format_timestamp(achievement['unlocktime'])
                         ])
             library.append(appid)
 
-    def get_achievement_history(self, connection: extensions.connection, steamid: str, appids: Set[int]):
-        json_content = self.fetch_data(self.owned_games.format(config('API_KEY'), steamid), 'json')
+    def get_achievement_history(self, connection: extensions.connection,
+                                steamid: str, appids: Set[int], achievementids: Set[str]):
+        try:
+            json_content = self.fetch_data(self.owned_games.format(config('API_KEY'), steamid), 'json')
+        except ForbiddenError:
+            # Private profiles
+            # DATABASE_TABLE[4] = 'purchased_games'
+            insert_data(connection, STEAM_SCHEMA, DATABASE_TABLES[4], [[steamid, None]])
+            return
         owned_games = json_content.get('response', {}).get('games', [])
         library, game_achievements = [], []
         with ThreadPoolExecutor() as executor:
-            executor.map(lambda batches: self.get_data_from_steam(steamid, batches, library,
-                game_achievements, appids), self._create_batches(owned_games))
+            executor.map(lambda batches: self.get_data_from_steam(
+                steamid, batches, library, game_achievements, appids, achievementids
+            ), self._create_batches(owned_games))
         if not library:
             library = None
         # DATABASE_TABLE[4] = 'purchased_games'
@@ -89,15 +113,16 @@ class SteamAchievementsHistory(Fetcher):
         except Error as e:
             # If the data was not inserted due to an error,
             # remove the player_id from the processed list
-            delete_data(connection, STEAM_SCHEMA, DATABASE_TABLES[4], [[steamid]])
+            delete_data(connection, STEAM_SCHEMA, DATABASE_TABLES[4], 'player_id', [[steamid]])
             LOGGER.warning(e)
 
     def start(self):
         with connect_to_database() as connection:
             steamids = self._get_players_id(connection)
-            appids = self._get_appids_achievements(connection)
+            appids = self._get_appids_achievements(connection, 'games')
+            achievementids = self._get_appids_achievements(connection, 'achievements')
             for steamid in steamids:
-                self.get_achievement_history(connection, steamid, appids)
+                self.get_achievement_history(connection, steamid, appids, achievementids)
 
 def main():
     SteamAchievementsHistory().start()
