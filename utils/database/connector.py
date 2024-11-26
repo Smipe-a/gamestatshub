@@ -18,7 +18,7 @@ def connect_to_database() -> extensions.connection:
         ) as current_connection:
             return current_connection
     except OperationalError as e:
-        LOGGER.fatal(f'Error connecting to the database:', {str(e).strip()})
+        LOGGER.fatal(f'Error connecting to the database: {str(e).strip()}')
         raise
 
 def insert_data(connection: extensions.connection, 
@@ -35,17 +35,18 @@ def insert_data(connection: extensions.connection,
             connection.commit()
     except Error as e:
         connection.rollback()
-        raise Error(f'Error inserting data into "{schema_name}.{table_name}":', str(e).strip())
+        raise Error(f'Error inserting data into "{schema_name}.{table_name}": {str(e).strip()}')
     except IndexError:
         raise IndexError('Attempt to insert an empty number of rows into the database')
 
 def delete_data(connection: extensions.connection,
-                schema_name: str, table_name: str, data: List[List[Any]]) -> None:
+                schema_name: str, table_name: str, column_name: str,
+                data: List[List[Any]]) -> None:
     try:
         with connection.cursor() as cursor:
             query = f"""
                 DELETE FROM {schema_name}.{table_name}
-                WHERE game_id = %s;
+                WHERE {column_name} = %s;
                 """
             cursor.executemany(query, data)
             connection.commit()

@@ -13,23 +13,19 @@ def queries(schema_name: str, table_name: str) -> Optional[str]:
         'playstation': {
             'games': """
                 CREATE TABLE playstation.games (
-                    game_id INT PRIMARY KEY,
-                    title VARCHAR(150) NOT NULL,
-                    platform VARCHAR(10) NOT NULL,
-                    region VARCHAR(5),
+                    game_id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    platform VARCHAR(10),
                     developers TEXT[],
                     publishers TEXT[],
                     genres TEXT[],
-                    release_date DATE,
-                    completion_time INT,
-                    difficulty INT,
-                    CHECK (difficulty > 0 AND difficulty < 11)
+                    release_date DATE
                 );
             """,
             'achievements': """
                 CREATE TABLE playstation.achievements (
-                    achievement_id VARCHAR(15) PRIMARY KEY,
-                    game_id INT NOT NULL REFERENCES playstation.games (game_id) ON DELETE CASCADE,
+                    achievement_id TEXT PRIMARY KEY,
+                    game_id TEXT NOT NULL REFERENCES playstation.games (game_id) ON DELETE CASCADE,
                     title TEXT NOT NULL,
                     description TEXT NOT NULL,
                     rarity TEXT NOT NULL,
@@ -45,9 +41,15 @@ def queries(schema_name: str, table_name: str) -> Optional[str]:
             'achievements_history': """
                 CREATE TABLE playstation.achievements_history (
                     nickname TEXT REFERENCES playstation.players (nickname) ON DELETE CASCADE,
-                    achievement_id VARCHAR(15) REFERENCES playstation.achievements (achievement_id) ON DELETE CASCADE,
+                    achievement_id TEXT REFERENCES playstation.achievements (achievement_id) ON DELETE CASCADE,
                     date_acquired TIMESTAMP,
                     PRIMARY KEY (nickname, achievement_id)
+                );
+            """,
+            'purchased_games': """
+                CREATE TABLE playstation.purchased_games (
+                    nickname TEXT PRIMARY KEY REFERENCES playstation.players (nickname) ON DELETE CASCADE,
+                    library TEXT[]
                 );
             """
         },
