@@ -1,6 +1,6 @@
 from typing import Optional, Tuple
 import os
-from utils.constants import (PLAYSTATION_SCHEMA, STEAM_SCHEMA,
+from utils.constants import (PLAYSTATION_SCHEMA, STEAM_SCHEMA, XBOX_SCHEMA,
                             DATABASE_TABLES, DATABASE_INFO_FILE_LOG)
 from utils.database.connector import connect_to_database
 from utils.logger import configure_logger
@@ -94,6 +94,34 @@ def queries(schema_name: str, table_name: str) -> Optional[str]:
                     library INT[]
                 );
             """
+        },
+        'xbox': {
+            'games': """
+                CREATE TABLE xbox.games (
+                    gameid INT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    developers TEXT[],
+                    publishers TEXT[],
+                    genres TEXT[],
+                    supported_languages TEXT[],
+                    release_date DATE
+                );
+            """,
+            'achievements': """
+                CREATE TABLE xbox.achievements (
+                    achievementid TEXT PRIMARY KEY,
+                    gameid INT NOT NULL REFERENCES xbox.games (gameid) ON DELETE CASCADE,
+                    title TEXT NOT NULL,
+                    description TEXT NOT NULL,
+                    points INT NOT NULL
+                );
+            """,
+            'players': """
+                CREATE TABLE xbox.players (
+                    playerid INT PRIMARY KEY,
+                    nickname TEXT
+                );
+            """
         }
     }
     return query.get(schema_name, {}).get(table_name, None)
@@ -142,7 +170,7 @@ def create_table(cursor, schema_name: str, table_name: str) -> None:
 
 if __name__ == '__main__':
     with connect_to_database() as connection, connection.cursor() as cursor:
-        for schema_name in [PLAYSTATION_SCHEMA, STEAM_SCHEMA]:
+        for schema_name in [PLAYSTATION_SCHEMA, STEAM_SCHEMA, XBOX_SCHEMA]:
             if is_schema(cursor, schema_name):
                 for table_name in DATABASE_TABLES:
                     create_table(cursor, schema_name, table_name)
