@@ -7,6 +7,7 @@ class Xbox(Fetcher):
     def __init__(self):
         super().__init__()
         self.url = 'https://www.exophase.com'
+        self.api = 'https://api.exophase.com'
 
     @staticmethod
     def _request(url: str) -> str:

@@ -38,8 +38,8 @@ def queries(schema_name: str, table_name: str) -> Optional[str]:
                     country TEXT NOT NULL
                 );
             """,
-            'achievements_history': """
-                CREATE TABLE playstation.achievements_history (
+            'history': """
+                CREATE TABLE playstation.history (
                     nickname TEXT REFERENCES playstation.players (nickname) ON DELETE CASCADE,
                     achievement_id TEXT REFERENCES playstation.achievements (achievement_id) ON DELETE CASCADE,
                     date_acquired TIMESTAMP,
@@ -80,8 +80,8 @@ def queries(schema_name: str, table_name: str) -> Optional[str]:
                     created TIMESTAMP
                 );    
             """,
-            'achievements_history': """
-                CREATE TABLE steam.achievements_history (
+            'history': """
+                CREATE TABLE steam.history (
                     player_id TEXT NOT NULL REFERENCES steam.players (player_id) ON DELETE CASCADE,
                     achievement_id TEXT NOT NULL REFERENCES steam.achievements (achievement_id) ON DELETE CASCADE,
                     date_acquired TIMESTAMP,
@@ -113,13 +113,27 @@ def queries(schema_name: str, table_name: str) -> Optional[str]:
                     gameid INT NOT NULL REFERENCES xbox.games (gameid) ON DELETE CASCADE,
                     title TEXT NOT NULL,
                     description TEXT NOT NULL,
-                    points INT NOT NULL
+                    points INT
                 );
             """,
             'players': """
                 CREATE TABLE xbox.players (
                     playerid INT PRIMARY KEY,
                     nickname TEXT
+                );
+            """,
+            'history': """
+                CREATE TABLE xbox.history (
+                    playerid INT NOT NULL REFERENCES xbox.players (playerid) ON DELETE CASCADE,
+                    achievementid TEXT NOT NULL REFERENCES xbox.achievements (achievementid) ON DELETE CASCADE,
+                    date_acquired TIMESTAMP,
+                    PRIMARY KEY (playerid, achievementid)
+                );
+            """,
+            'purchased_games': """
+                CREATE TABLE xbox.purchased_games (
+                    playerid INT PRIMARY KEY REFERENCES xbox.players (playerid) ON DELETE CASCADE,
+                    library INT[]
                 );
             """
         }

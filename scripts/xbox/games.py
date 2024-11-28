@@ -27,8 +27,11 @@ class XboxGames(Xbox):
         supported_languages, release = None, None
         html_content = self._request(url)
         soup = BeautifulSoup(html_content, 'html.parser')
-        block = soup.find('dl', class_='details')
-        for attribute in block.find_all('dt'):
+        try:
+            attributes = soup.find('dl', class_='details').find_all('dt')
+        except AttributeError:
+            attributes = []
+        for attribute in attributes:
             info = attribute.find_next('dd')
             if attribute.text == 'Developer:':
                 developers = [developer.text.strip() for developer in info.find_all('a')]
@@ -50,8 +53,12 @@ class XboxGames(Xbox):
                 class_='text-medium award-title hidden-toggle fw-bolder').find('a').text.strip()
             description = achievement.find('div',
                 class_='award-description hidden-toggle').find('p').text.strip()
-            points = achievement.find('div',
-                class_='col-12 col-lg mt-3 mt-lg-0 award-points text-center').find('span').text.strip()
+            try:
+                points = achievement.find('div',
+                    class_='col-12 col-lg mt-3 mt-lg-0 award-points text-center').find('span').text.strip()
+            except AttributeError:
+                # Points for achievement acquisition are missing
+                points = None
             achievements.append([achievementid, gameid, title, description, points])
         return details, achievements
 

@@ -3,15 +3,15 @@ from concurrent.futures import ThreadPoolExecutor
 from psycopg2 import Error, extensions
 from datetime import datetime
 from decouple import config
-from utils.constants import STEAM_SCHEMA, DATABASE_TABLES, S_ACHIEVEMENTS_HISTORY_FILE_LOG
 from utils.database.connector import connect_to_database, insert_data, delete_data
-from utils.logger import configure_logger
+from utils.constants import STEAM_SCHEMA, DATABASE_TABLES, S_HISTORY_FILE_LOG
 from utils.fetcher import Fetcher, ForbiddenError
+from utils.logger import configure_logger
 
-LOGGER = configure_logger(__name__, S_ACHIEVEMENTS_HISTORY_FILE_LOG)
+LOGGER = configure_logger(__name__, S_HISTORY_FILE_LOG)
 
 
-class SteamAchievementsHistory(Fetcher):
+class SteamHistory(Fetcher):
     def __init__(self):
         super().__init__()
         self.owned_games = 'https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key={}&steamid={}&format=json'
@@ -104,7 +104,7 @@ class SteamAchievementsHistory(Fetcher):
         # DATABASE_TABLE[4] = 'purchased_games'
         insert_data(connection, STEAM_SCHEMA, DATABASE_TABLES[4], [[steamid, library]])
         try:
-            # DATABASE_TABLES[3] = 'achievements_history'
+            # DATABASE_TABLES[3] = 'history'
             insert_data(connection, STEAM_SCHEMA, DATABASE_TABLES[3], game_achievements)
         except IndexError:
             # We reach this point if the player has games,
@@ -125,4 +125,4 @@ class SteamAchievementsHistory(Fetcher):
                 self.get_achievement_history(connection, steamid, appids, achievementids)
 
 def main():
-    SteamAchievementsHistory().start()
+    SteamHistory().start()
