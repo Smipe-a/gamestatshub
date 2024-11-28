@@ -93,6 +93,18 @@ def queries(schema_name: str, table_name: str) -> Optional[str]:
                     player_id TEXT PRIMARY KEY REFERENCES steam.players (player_id) ON DELETE CASCADE,
                     library INT[]
                 );
+            """,
+            'prices': """
+                CREATE TABLE steam.prices (
+                    game_id INT NOT NULL REFERENCES steam.games (game_id) ON DELETE CASCADE,
+                    usd NUMERIC,
+                    eur NUMERIC,
+                    gbp NUMERIC,
+                    jpy NUMERIC,
+                    rub NUMERIC,
+                    date_acquired DATE NOT NULL,
+                    PRIMARY KEY (game_id, date_acquired)
+                );
             """
         },
         'xbox': {
