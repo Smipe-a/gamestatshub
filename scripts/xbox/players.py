@@ -4,12 +4,12 @@ from bs4 import BeautifulSoup
 from utils.constants import XBOX_SCHEMA, DATABASE_TABLES, X_PLAYERS_FILE_LOG
 from utils.database.connector import connect_to_database, insert_data
 from utils.logger import configure_logger
-from scripts.xbox import Xbox
+from scripts import ExophaseAPI
 
 LOGGER = configure_logger(__name__, X_PLAYERS_FILE_LOG)
 
 
-class XboxPlayers(Xbox):
+class XboxPlayers(ExophaseAPI):
     def __init__(self):
         super().__init__()
         self.leaderboard = self.url + '/xbox/leaderboard/page/{page}/'
