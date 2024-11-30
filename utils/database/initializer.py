@@ -13,19 +13,20 @@ def queries(schema_name: str, table_name: str) -> Optional[str]:
         'playstation': {
             'games': """
                 CREATE TABLE playstation.games (
-                    game_id TEXT PRIMARY KEY,
+                    gameid INT PRIMARY KEY,
                     title TEXT NOT NULL,
                     platform VARCHAR(10),
                     developers TEXT[],
                     publishers TEXT[],
                     genres TEXT[],
+                    supported_languages TEXT[],
                     release_date DATE
                 );
             """,
             'achievements': """
                 CREATE TABLE playstation.achievements (
-                    achievement_id TEXT PRIMARY KEY,
-                    game_id TEXT NOT NULL REFERENCES playstation.games (game_id) ON DELETE CASCADE,
+                    achievementid TEXT PRIMARY KEY,
+                    gameid INT NOT NULL REFERENCES playstation.games (gameid) ON DELETE CASCADE,
                     title TEXT NOT NULL,
                     description TEXT NOT NULL,
                     rarity TEXT NOT NULL,
@@ -34,22 +35,35 @@ def queries(schema_name: str, table_name: str) -> Optional[str]:
             """,
             'players': """
                 CREATE TABLE playstation.players (
-                    nickname TEXT PRIMARY KEY,
+                    playerid INT PRIMARY KEY,
+                    nickname TEXT NOT NULL,
                     country TEXT NOT NULL
                 );
             """,
             'history': """
                 CREATE TABLE playstation.history (
-                    nickname TEXT REFERENCES playstation.players (nickname) ON DELETE CASCADE,
-                    achievement_id TEXT REFERENCES playstation.achievements (achievement_id) ON DELETE CASCADE,
+                    playerid INT REFERENCES playstation.players (playerid) ON DELETE CASCADE,
+                    achievementid TEXT REFERENCES playstation.achievements (achievementid) ON DELETE CASCADE,
                     date_acquired TIMESTAMP,
-                    PRIMARY KEY (nickname, achievement_id)
+                    PRIMARY KEY (playerid, achievementid)
                 );
             """,
             'purchased_games': """
                 CREATE TABLE playstation.purchased_games (
-                    nickname TEXT PRIMARY KEY REFERENCES playstation.players (nickname) ON DELETE CASCADE,
+                    playerid INT PRIMARY KEY REFERENCES playstation.players (playerid) ON DELETE CASCADE,
                     library TEXT[]
+                );
+            """,
+            'prices': """
+                CREATE table playstation.prices (
+                    gameid INT NOT NULL REFERENCES playstation.games (gameid) ON DELETE CASCADE,
+                    usd NUMERIC,
+                    eur NUMERIC,
+                    gbp NUMERIC,
+                    jpy NUMERIC,
+                    rub NUMERIC,
+                    date_acquired DATE NOT NULL,
+                    PRIMARY KEY (gameid, date_acquired)
                 );
             """
         },
@@ -146,6 +160,18 @@ def queries(schema_name: str, table_name: str) -> Optional[str]:
                 CREATE TABLE xbox.purchased_games (
                     playerid INT PRIMARY KEY REFERENCES xbox.players (playerid) ON DELETE CASCADE,
                     library INT[]
+                );
+            """,
+            'prices': """
+                CREATE TABLE xbox.prices (
+                    gameid INT NOT NULL REFERENCES xbox.games (gameid) ON DELETE CASCADE,
+                    usd NUMERIC,
+                    eur NUMERIC,
+                    gbp NUMERIC,
+                    jpy NUMERIC,
+                    rub NUMERIC,
+                    date_acquired DATE NOT NULL,
+                    PRIMARY KEY (gameid, date_acquired)
                 );
             """
         }
