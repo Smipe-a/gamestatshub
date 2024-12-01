@@ -50,7 +50,7 @@ class SteamAchievements(Fetcher):
             # The exception captures playtest data that lacks a JSON structure
             dump_achievements.add(appid)
             # Updating the achievements dump
-            with open(CACHE_ACHIEVEMENTS, 'wb') as file:
+            with open('./resources/' + CACHE_ACHIEVEMENTS, 'wb') as file:
                 pickle.dump(dump_achievements, file)
             return
         achievements = json_content.get('game', {}).get('availableGameStats', {}).get('achievements', [])
@@ -71,13 +71,13 @@ class SteamAchievements(Fetcher):
             # There is no achievement data for the game
             dump_achievements.add(appid)
         # Updating the achievements dump
-        with open(CACHE_ACHIEVEMENTS, 'wb') as file:
+        with open('./resources/' + CACHE_ACHIEVEMENTS, 'wb') as file:
             pickle.dump(dump_achievements, file)
     
     def start(self):
         with connect_to_database() as connection:
             try:
-                with open(CACHE_ACHIEVEMENTS, 'rb') as file:
+                with open('./resources/' + CACHE_ACHIEVEMENTS, 'rb') as file:
                     dump_achievements = pickle.load(file)
             except FileNotFoundError:
                 dump_achievements = set()
@@ -190,7 +190,7 @@ class SteamGames(Fetcher):
                     LOGGER.warning(e)
             # Recording the processed game data into the dump
             # Poor implementation, as Steam can terminate the connection at any moment
-            with open(CACHE_APPIDS, 'wb') as file:
+            with open('./resources/' + CACHE_APPIDS, 'wb') as file:
                 pickle.dump(dump_appids, file)
 
     def start(self):
@@ -198,7 +198,7 @@ class SteamGames(Fetcher):
             json_content = self.fetch_data(self.applist, 'json').get('applist', {}).get('apps', [])
             # Retrieving the cache of the most recent appids data available in postgres
             try:
-                with open(CACHE_APPIDS, 'rb') as file:
+                with open('./resources/' + CACHE_APPIDS, 'rb') as file:
                     dump_appids = pickle.load(file)
             except FileNotFoundError:
                 dump_appids = set()

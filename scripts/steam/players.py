@@ -45,7 +45,7 @@ class SteamPlayers(Fetcher):
         with connect_to_database() as connection:
             # Initial steamids collected from different sections of Steam and various game categories
             try:
-                with open(CASHE_PLAYERS, 'rb') as file:
+                with open('./resources/' + CASHE_PLAYERS, 'rb') as file:
                     steamids = pickle.load(file)
             except FileNotFoundError:
                 steamids = [
@@ -97,7 +97,7 @@ class SteamPlayers(Fetcher):
                             friendid = friend['steamid']
                             if friendid not in visited_steamids:
                                 steamids.append(friendid)
-                    with open(CASHE_PLAYERS, 'wb') as file:
+                    with open('./resources/' + CASHE_PLAYERS, 'wb') as file:
                         pickle.dump(steamids, file)
                     break
 
