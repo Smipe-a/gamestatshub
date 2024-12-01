@@ -40,5 +40,7 @@ X_MISSING_DATA_FILE_LOG: str = 'x_missing_data.log'
 CACHE_APPIDS: str = 'appids.pkl'
 CACHE_ACHIEVEMENTS: str = 'achievements.pkl'
 CASHE_PLAYERS: str = 'players.pkl'
+CASHE_XBOXURLS: str = 'xboxurls.pkl'
 
 MATCH_MISSING_DATA: str = 'missing_data.csv'
+MATCH_XBOX_PRICES: str = 'xbox_prices.csv'

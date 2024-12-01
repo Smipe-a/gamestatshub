@@ -1,10 +1,12 @@
+from typing import Optional, Union, Dict, List, Set
 from concurrent.futures import ThreadPoolExecutor
-from typing import Optional, Union, List, Set
 from psycopg2 import extensions, Error
 from bs4 import BeautifulSoup
 from datetime import datetime
+import pickle
 import json
-from utils.constants import XBOX_SCHEMA, DATABASE_TABLES, X_HISTORY_FILE_LOG
+from utils.constants import (XBOX_SCHEMA, DATABASE_TABLES,
+                             X_HISTORY_FILE_LOG, CASHE_XBOXURLS)
 from utils.database.connector import connect_to_database, insert_data
 from utils.logger import configure_logger
 from scripts import ExophaseAPI
@@ -44,10 +46,12 @@ class XboxHistory(ExophaseAPI):
     def _get_playerid(connection: extensions.connection) -> List[Optional[int]]:
         try:
             with connection.cursor() as cursor:
+                # ORDER BY RANDOM() - for a representative sample
                 query = """
                     SELECT playerid
                     FROM xbox.players
-                    WHERE playerid NOT IN (SELECT playerid FROM xbox.purchased_games);
+                    WHERE playerid NOT IN (SELECT playerid FROM xbox.purchased_games)
+                    ORDER BY RANDOM();
                 """
                 cursor.execute(query)
                 return [playerid[0] for playerid in cursor.fetchall()]
@@ -60,14 +64,31 @@ class XboxHistory(ExophaseAPI):
         # UNIX-timestamp
         return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
 
-    def get_history(self, playerid: int, gameid: int,
+    def get_history(self, connection: extensions.connection,
+                    playerid: int, gameid: int,
                     history: List[Optional[Union[int, str]]],
-                    achievementids: Set[Union[int, str]]):
+                    achievementids: Set[Union[int, str]],
+                    dump_xboxurls: Dict[int, str]):
         json_content = json.loads(
             self._request(self.history.format(playerid=playerid, gameid=gameid)))
         for achievement in json_content.get('list', []):
+            check = True
             achievementid = f"{gameid}_{achievement['awardid']}"
-            if achievementid in achievementids:
+            # At a certain point, the data in the database may not contain
+            # any newly added achievements. This check helps to update our data
+            if achievementid not in achievementids:
+                gameurl = dump_xboxurls[gameid]
+                html_content = self._request(gameurl)
+                soup = BeautifulSoup(html_content, 'html.parser')
+                new_achievements = self.get_achievements(soup, gameid)
+                try:
+                    # DATABASE_TABLES[1] = 'achievements'
+                    insert_data(connection, XBOX_SCHEMA, DATABASE_TABLES[1], new_achievements)
+                except Error as e:
+                    LOGGER.error(f'The achievement data update for the game "{gameid}" was not successful. ' \
+                                 f'Error: {e}')
+                    check = False
+            if check:
                 history.append([playerid,
                                 achievementid,
                                 self._format_timestamp(achievement['timestamp'])])
@@ -113,12 +134,14 @@ class XboxHistory(ExophaseAPI):
         with connect_to_database() as connection:
             gameids = self._get_appids_achievements(connection, 'games')
             achievementids = self._get_appids_achievements(connection, 'achievements')
+            with open('./resources/' + CASHE_XBOXURLS, 'rb') as file:
+                dump_xboxurls = pickle.load(file)
             for playerid in self._get_playerid(connection):
                 purchased = self.get_purchased(connection, playerid, gameids)
                 history = []
                 with ThreadPoolExecutor() as executor:
                     executor.map(lambda gameid: self.get_history(
-                        playerid, gameid,history, achievementids), purchased)
+                        connection, playerid, gameid, history, achievementids, dump_xboxurls), purchased)
                 if not purchased:
                     purchased = None
                 try:
