@@ -41,6 +41,7 @@ CACHE_APPIDS: str = 'appids.pkl'
 CACHE_ACHIEVEMENTS: str = 'achievements.pkl'
 CASHE_PLAYERS: str = 'players.pkl'
 CASHE_XBOXURLS: str = 'xboxurls.pkl'
+CASHE_PLAYSTATIONURLS: str = 'playstationurls.pkl'
 
 MATCH_MISSING_DATA: str = 'missing_data.csv'
 MATCH_XBOX_PRICES: str = 'xbox_prices.csv'
