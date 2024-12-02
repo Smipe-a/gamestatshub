@@ -15,7 +15,7 @@ class ExophaseAPI(Fetcher):
 
     @staticmethod
     def _format_date(date: str) -> Optional[str]:
-        if date in {'To be announced', 'Yesterday'}:
+        if date in {'To be announced', 'Yesterday', 'Tomorrow'}:
             return None
         try:
             # Date example: October 25, 2024

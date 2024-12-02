@@ -36,6 +36,7 @@ X_GAMES_FILE_LOG: str = 'x_games.log'
 X_HISTORY_FILE_LOG: str = 'x_history.log'
 X_PRICES_FILE_LOG: str = 'x_prices.log'
 X_MISSING_DATA_FILE_LOG: str = 'x_missing_data.log'
+P_MISSING_DATA_FILE_LOG: str = 'p_missing_data.log'
 
 CACHE_APPIDS: str = 'appids.pkl'
 CACHE_ACHIEVEMENTS: str = 'achievements.pkl'
