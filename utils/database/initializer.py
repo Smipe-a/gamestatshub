@@ -51,7 +51,7 @@ def queries(schema_name: str, table_name: str) -> Optional[str]:
             'purchased_games': """
                 CREATE TABLE playstation.purchased_games (
                     playerid INT PRIMARY KEY REFERENCES playstation.players (playerid) ON DELETE CASCADE,
-                    library TEXT[]
+                    library INT[]
                 );
             """,
             'prices': """
