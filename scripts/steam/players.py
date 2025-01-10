@@ -24,8 +24,10 @@ def _create_batches(appids: List[int], batch_size: int = 100) -> Generator[List[
 
 
 class SteamReviews(Fetcher):
-    def __init__(self):
+    def __init__(self, process: str):
         super().__init__()
+        self.process = process
+
         self.steam = 'https://api.steampowered.com/ISteamUser/'
         self.user_data = self.steam + 'GetPlayerSummaries/v0002/?key={api_key}&steamids={steamids}'
         self.reviews = '{player_url}recommended/?p={page}'
@@ -170,11 +172,14 @@ class SteamReviews(Fetcher):
                     executor.map(lambda profile: 
                                  self.get_reviews(connection, profile[1], profile[0], gameids), profiles)
             
-            LOGGER.info(f'Added "{self.added}" new data to the table "steam.reviews"')
+            LOGGER.info(f'Added "{self.added}" new data to the table "steam.{self.process}"')
 
 class SteamPlayers(Fetcher):
-    def __init__(self):
+    def __init__(self, process: str):
         super().__init__()
+        self.process = process
+        self.process_friends = 'friends'
+
         self.steam = 'https://api.steampowered.com/ISteamUser/'
         self.user_data = self.steam + 'GetPlayerSummaries/v0002/?key={api_key}&steamids={steamids}'
         self.friends = self.steam + 'GetFriendList/v0001/?key={api_key}&steamid={steamid}&relationship=friend'
@@ -300,8 +305,8 @@ class SteamPlayers(Fetcher):
                         pickle.dump(steamids, file)
                     break
             
-            LOGGER.info(f'Added "{self.added}" new data to the table "steam.players"')
-            LOGGER.info(f'Added "{self.added_friends}" new data to the table "steam.friends"')
+            LOGGER.info(f'Added "{self.added}" new data to the table "steam.{self.process}"')
+            LOGGER.info(f'Added "{self.added_friends}" new data to the table "steam.{self.process_friends}"')
 
 def main(process):
     processes = {
@@ -312,11 +317,12 @@ def main(process):
     if process in processes:
         LOGGER.info(f'Process started with parameter process="{process}"')
         try:
-            process_class = processes[process]()
+            process_class = processes[process](process)
             process_class.start()
         except (Exception, KeyboardInterrupt) as e:
             if str(e) == '':
                 e = 'Forced termination'
+            
             LOGGER.error(f'An unhandled exception occurred with error: {str(e).strip()}')
             LOGGER.info(f'Added "{process_class.added}" new data to the table "steam.{process}"')
             if process == 'players':

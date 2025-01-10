@@ -14,10 +14,14 @@ LOGGER = configure_logger(Path(__file__).name, STEAM_LOGS)
 
 
 class SteamPrices(Fetcher):
-    def __init__(self):
+    def __init__(self, process: str):
         super().__init__()
+        self.process = process
+
         self.url = 'https://store.steampowered.com'
         self.prices = self.url + '/api/appdetails/?appids={appids}&cc={currency}&filters=price_overview'
+
+        # Number of records added to the 'prices' table
         self.added = 0
     
     @staticmethod
@@ -91,16 +95,19 @@ class SteamPrices(Fetcher):
             for appids in self._create_batches(self._get_appids(connection)):
                 self.get_prices(connection, appids)
 
-            LOGGER.info(f'Added "{self.added}" new data to the table "steam.prices"')
+            LOGGER.info(f'Added "{self.added}" new data to the table "steam.{self.process}"')
 
 def main():
     try:
-        steam_prices = SteamPrices()
+        process = 'prices'
+        LOGGER.info(f'Process started')
+
+        steam_prices = SteamPrices(process)
         steam_prices.start()
     except (Exception, KeyboardInterrupt) as e:
         if str(e) == '':
             e = 'Forced termination'
         LOGGER.error(f'An unhandled exception occurred with error: {str(e).strip()}')
-        LOGGER.info(f'Added "{steam_prices.added}" new data to the table "steam.prices"')
+        LOGGER.info(f'Added "{steam_prices.added}" new data to the table "steam.{process}"')
         
         raise Exception(e)
