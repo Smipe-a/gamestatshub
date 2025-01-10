@@ -3,8 +3,10 @@ import os
 
 DATABASE_TABLES: List[str] = [
     'games', 'achievements', 'players',
-    'history', 'purchased_games', 'prices'
+    'history', 'purchased_games', 'prices',
+    'reviews', 'friends', 'private_steamids'
 ]
+
 PLAYSTATION_SCHEMA: str = 'playstation'
 STEAM_SCHEMA: str = 'steam'
 XBOX_SCHEMA: str = 'xbox'
@@ -22,15 +24,14 @@ PROJECT_DIRECTORY: str = os.path.abspath(os.path.join(os.path.dirname(__file__),
 LOG_CATALOG: str = 'logs'
 
 DATABASE_INFO_FILE_LOG: str = 'database_info.log'
+STEAM_LOGS: str = 'steam.log'
 # Prefixes P_ - PlayStation; S_ - Steam; X_ - Xbox
 P_PLAYERS_FILE_LOG: str = 'p_players.log'
 P_GAMES_FILE_LOG: str = 'p_games.log'
 P_HISTORY_FILE_LOG: str = 'p_history.log'
 P_PRICES_FILE_LOG: str = 'p_prices.log'
-S_PLAYERS_FILE_LOG: str = 's_players.log'
 S_GAMES_FILE_LOG: str = 's_games.log'
 S_HISTORY_FILE_LOG: str = 's_history.log'
-S_PRICES_FILE_LOG: str = 's_prices.log'
 X_PLAYERS_FILE_LOG: str = 'x_players.log'
 X_GAMES_FILE_LOG: str = 'x_games.log'
 X_HISTORY_FILE_LOG: str = 'x_history.log'
@@ -43,6 +44,7 @@ CACHE_ACHIEVEMENTS: str = 'achievements.pkl'
 CASHE_PLAYERS: str = 'players.pkl'
 CASHE_XBOXURLS: str = 'xboxurls.pkl'
 CASHE_PLAYSTATIONURLS: str = 'playstationurls.pkl'
+CASHE_STEAMIDS: str = 'steamids.pkl'
 
 MATCH_MISSING_DATA: str = 'missing_data.csv'
 MATCH_XBOX_PRICES: str = 'xbox_prices.csv'

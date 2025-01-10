@@ -1,11 +1,11 @@
 from typing import Optional, Tuple
-import os
+from pathlib import Path
 from utils.constants import (PLAYSTATION_SCHEMA, STEAM_SCHEMA, XBOX_SCHEMA,
                             DATABASE_TABLES, DATABASE_INFO_FILE_LOG)
 from utils.database.connector import connect_to_database
 from utils.logger import configure_logger
 
-LOGGER = configure_logger(os.path.basename(__file__), DATABASE_INFO_FILE_LOG)
+LOGGER = configure_logger(Path(__file__).name, DATABASE_INFO_FILE_LOG)
 
 
 def queries(schema_name: str, table_name: str) -> Optional[str]:
@@ -119,6 +119,29 @@ def queries(schema_name: str, table_name: str) -> Optional[str]:
                     date_acquired DATE NOT NULL,
                     PRIMARY KEY (game_id, date_acquired)
                 );
+            """,
+            'reviews': """
+                CREATE TABLE steam.reviews (
+                    review_id SERIAL PRIMARY KEY,
+                    player_id TEXT NOT NULL REFERENCES steam.players (player_id) ON DELETE CASCADE,
+                    game_id INT NOT NULL REFERENCES steam.games (game_id) ON DELETE CASCADE,
+                    review TEXT NOT NULL,
+                    helpful INT NOT NULL,
+                    funny INT NOT NULL,
+                    awards INT NOT NULL,
+                    posted DATE NOT NULL
+                );
+            """,
+            'friends': """
+                CREATE TABLE steam.friends (
+                    player_id TEXT PRIMARY KEY REFERENCES steam.players (player_id) ON DELETE CASCADE,
+                    friends TEXT[]
+                );
+            """,
+            'private_steamids': """
+                CREATE TABLE steam.private_steamids (
+                    player_id TEXT PRIMARY KEY
+                );
             """
         },
         'xbox': {
@@ -193,7 +216,7 @@ def is_schema(cursor, schema_name: str) -> Optional[bool]:
             LOGGER.info(f'The schema "{schema_name}" already exist')
         return True
     except Exception as e:
-        LOGGER.error('Error creating schema:', str(e).strip())
+        LOGGER.error('Error creating schema: %s', str(e).strip())
         return None
 
 def create_table(cursor, schema_name: str, table_name: str) -> None:
@@ -204,6 +227,7 @@ def create_table(cursor, schema_name: str, table_name: str) -> None:
                             WHERE table_schema = %s AND table_name = %s
                             """
         cursor.execute(check_table_query, (schema_name, table_name))
+        
         # If such a table is absent, we create it
         if cursor.fetchone() is None:
             query = queries(schema_name, table_name)
@@ -217,7 +241,7 @@ def create_table(cursor, schema_name: str, table_name: str) -> None:
         else:
             LOGGER.info(f'The table "{table_name}" in the schema "{schema_name}" already exist')
     except Exception as e:
-        LOGGER.error('Error creating table:', str(e).strip())
+        LOGGER.error('Error creating table: %s', str(e).strip())
 
 
 if __name__ == '__main__':
