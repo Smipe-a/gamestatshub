@@ -202,5 +202,3 @@ def main():
         LOGGER.info(f'Added "{steam_history.added_library}" new data to the table "steam.{process_library}"')
         
         raise Exception(e)
-
-main()

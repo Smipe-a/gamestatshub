@@ -25,26 +25,23 @@ LOG_CATALOG: str = 'logs'
 
 DATABASE_INFO_FILE_LOG: str = 'database_info.log'
 STEAM_LOGS: str = 'steam.log'
-# Prefixes P_ - PlayStation; S_ - Steam; X_ - Xbox
-P_PLAYERS_FILE_LOG: str = 'p_players.log'
-P_GAMES_FILE_LOG: str = 'p_games.log'
-P_HISTORY_FILE_LOG: str = 'p_history.log'
-P_PRICES_FILE_LOG: str = 'p_prices.log'
-S_GAMES_FILE_LOG: str = 's_games.log'
-S_HISTORY_FILE_LOG: str = 's_history.log'
+PLAYSTATION_LOGS: str = 'playstation.log'
+XBOX_LOGS: str = 'xbox.log'
+
 X_PLAYERS_FILE_LOG: str = 'x_players.log'
 X_GAMES_FILE_LOG: str = 'x_games.log'
 X_HISTORY_FILE_LOG: str = 'x_history.log'
 X_PRICES_FILE_LOG: str = 'x_prices.log'
 X_MISSING_DATA_FILE_LOG: str = 'x_missing_data.log'
-P_MISSING_DATA_FILE_LOG: str = 'p_missing_data.log'
 
+# ------------------------ Steam ------------------------
 CACHE_APPIDS: str = 'appids.pkl'
 CACHE_ACHIEVEMENTS: str = 'achievements.pkl'
 CASHE_PLAYERS: str = 'players.pkl'
-CASHE_XBOXURLS: str = 'xboxurls.pkl'
-CASHE_PLAYSTATIONURLS: str = 'playstationurls.pkl'
-CASHE_STEAMIDS: str = 'steamids.pkl'
 
+# --------------------- PlayStation ---------------------
+CASHE_PLAYSTATIONURLS: str = 'playstationurls.pkl'
 MATCH_MISSING_DATA: str = 'missing_data.csv'
-MATCH_XBOX_PRICES: str = 'xbox_prices.csv'
+
+# ------------------------ Xbox -------------------------
+CASHE_XBOXURLS: str = 'xboxurls.pkl'
