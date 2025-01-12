@@ -125,8 +125,6 @@ class PlayStationHistory(ExophaseAPI):
                     url = game['meta']['endpoint_awards'].replace(f'/achievements/#{playerid}', '')
                 except AttributeError:
                     # Data for the game is not available on the source website
-                    LOGGER.warning(f'Data for the game "{gameid}" with the title' \
-                                   f'"{title}" is not available on the source website')
                     continue
                 
                 if gameid not in gameids:
@@ -197,6 +195,7 @@ class PlayStationHistory(ExophaseAPI):
 
 def main():
     process_purchased, process_history = 'purchased_games', 'history'
+    LOGGER.info(f'Process started')
 
     playstation_history = PlayStationHistory(process_purchased, process_history)
     

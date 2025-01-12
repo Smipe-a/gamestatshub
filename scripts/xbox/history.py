@@ -3,23 +3,32 @@ from concurrent.futures import ThreadPoolExecutor
 from psycopg2 import extensions, Error
 from bs4 import BeautifulSoup
 from datetime import datetime
+from pathlib import Path
 import pickle
 import json
 from utils.constants import (XBOX_SCHEMA, DATABASE_TABLES,
-                             X_HISTORY_FILE_LOG, CASHE_XBOXURLS)
+                             XBOX_LOGS, CASHE_XBOXURLS)
 from utils.database.connector import connect_to_database, insert_data
 from utils.logger import configure_logger
 from scripts import ExophaseAPI
 
-LOGGER = configure_logger(__name__, X_HISTORY_FILE_LOG)
+LOGGER = configure_logger(Path(__file__).name, XBOX_LOGS)
 
 
 class XboxHistory(ExophaseAPI):
-    def __init__(self):
+    def __init__(self, process_purchased: str, process_history: str):
         super().__init__()
+        self.process_purchased = process_purchased
+        self.process_history = process_history
+
         self.purchased = self.api + '/public/player/{playerid}/games?' \
             + 'page={page}&environment=xbox&sort=1'
         self.history = self.api + '/public/player/{playerid}/game/{gameid}/earned'
+
+        # Number of records added to the 'purchased_games' table
+        self.added_purchased = 0
+        # Number of records added to the 'history' table
+        self.added_history = 0
     
     @staticmethod
     def _get_appids_achievements(connection: extensions.connection,
@@ -71,16 +80,21 @@ class XboxHistory(ExophaseAPI):
                     dump_xboxurls: Dict[int, str]):
         json_content = json.loads(
             self._request(self.history.format(playerid=playerid, gameid=gameid)))
+        
         for achievement in json_content.get('list', []):
             check = True
-            achievementid = f"{gameid}_{achievement['awardid']}"
+            achievementid = f'{gameid}_{achievement["awardid"]}'
+            
             # At a certain point, the data in the database may not contain
             # any newly added achievements. This check helps to update our data
             if achievementid not in achievementids:
                 gameurl = dump_xboxurls[gameid]
+                
                 html_content = self._request(gameurl)
                 soup = BeautifulSoup(html_content, 'html.parser')
+                
                 new_achievements = self.get_achievements(soup, gameid)
+                
                 try:
                     # DATABASE_TABLES[1] = 'achievements'
                     insert_data(connection, XBOX_SCHEMA, DATABASE_TABLES[1], new_achievements)
@@ -88,6 +102,7 @@ class XboxHistory(ExophaseAPI):
                     LOGGER.error(f'The achievement data update for the game "{gameid}" was not successful. ' \
                                  f'Error: {e}')
                     check = False
+            
             if check:
                 history.append([playerid,
                                 achievementid,
@@ -96,26 +111,30 @@ class XboxHistory(ExophaseAPI):
     def get_purchased(self, connection: extensions.connection,
                       playerid: int, gameids: Set[Optional[int]]) -> List[Optional[int]]:
         purchased, page = [], 1
+        
         json_content = json.loads(
             self._request(self.purchased.format(playerid=playerid, page=page)))
+        
         while json_content.get('success', False):
             for game in json_content.get('games', []):
                 gameid = game['master_id']
                 title = game['meta']['title']
+                
                 try:
                     url = game['meta']['endpoint_awards'].replace(f'/achievements/#{playerid}', '')
                 except AttributeError:
                     # Data for the game is not available on the source website
-                    LOGGER.warning(f'Data for the game "{gameid}" with the title' \
-                                   f'"{title}" is not available on the source website')
                     continue
+                
                 if gameid not in gameids:
                     # Adding information about a game that is not in our database
                     # but was found in the player's profile JSON data
                     html_content = self._request(url)
                     soup = BeautifulSoup(html_content, 'html.parser')
+                    
                     details = [gameid, title] + self.get_details(soup)
                     achievements = self.get_achievements(soup, gameid)
+                    
                     try:
                         # DATABASE_TABLES[0] = 'games'
                         # DATABASE_TABLES[1] = 'achievements'
@@ -123,8 +142,13 @@ class XboxHistory(ExophaseAPI):
                         insert_data(connection, XBOX_SCHEMA, DATABASE_TABLES[1], achievements)
                     except (Error, IndexError) as e:
                         LOGGER.warning(e)
+                
                 purchased.append(gameid)
+                # Overwriting gameids with updated new games
+                # If the next player encounters it again, we no longer consider it as new
                 gameids.add(gameid)
+            
+            # Iterating to the next page
             page += 1
             json_content = json.loads(
                 self._request(self.purchased.format(playerid=playerid, page=page)))
@@ -134,23 +158,54 @@ class XboxHistory(ExophaseAPI):
         with connect_to_database() as connection:
             gameids = self._get_appids_achievements(connection, 'games')
             achievementids = self._get_appids_achievements(connection, 'achievements')
-            with open('./resources/' + CASHE_XBOXURLS, 'rb') as file:
-                dump_xboxurls = pickle.load(file)
+            
+            try:
+                with open('./resources/' + CASHE_XBOXURLS, 'rb') as file:
+                    dump_xboxurls = pickle.load(file)
+                
+                if not isinstance(dump_xboxurls, dict) or len(dump_xboxurls) == 0:
+                    raise FileNotFoundError
+            except FileNotFoundError:
+                dump_xboxurls = {}
+            
             for playerid in self._get_playerid(connection):
-                purchased = self.get_purchased(connection, playerid, gameids)
                 history = []
+
+                purchased = self.get_purchased(connection, playerid, gameids)
                 with ThreadPoolExecutor() as executor:
                     executor.map(lambda gameid: self.get_history(
                         connection, playerid, gameid, history, achievementids, dump_xboxurls), purchased)
+                
                 if not purchased:
                     purchased = None
+                
                 try:
                     # DATABASE_TABLES[3] = 'history'
                     insert_data(connection, XBOX_SCHEMA, DATABASE_TABLES[3], history)
+                    self.added_history += len(history)
                     # DATABASE_TABLES[4] = 'purchased_games'
                     insert_data(connection, XBOX_SCHEMA, DATABASE_TABLES[4], [[playerid, purchased]])
+                    self.added_purchased += 1
                 except (IndexError, Error) as e:
                     LOGGER.warning(e)
+        
+        LOGGER.info(f'Added "{self.added_purchased}" new data to the table "xbox.{self.process_purchased}"')
+        LOGGER.info(f'Added "{self.added_history}" new data to the table "xbox.{self.process_history}"')
 
 def main():
-    XboxHistory().start()
+    process_purchased, process_history = 'purchased_games', 'history'
+    LOGGER.info(f'Process started')
+
+    xbox_hisotry = XboxHistory(process_purchased, process_history)
+    
+    try:
+        xbox_hisotry.start()
+    except (Exception, KeyboardInterrupt) as e:
+        if str(e) == '':
+            e = 'Forced termination'
+        LOGGER.error(f'An unhandled exception occurred with error: {str(e).strip()}')
+        
+        LOGGER.info(f'Added "{xbox_hisotry.added_purchased}" new data to the table "xbox.{process_purchased}"')
+        LOGGER.info(f'Added "{xbox_hisotry.added_history}" new data to the table "xbox.{process_history}"')
+        
+        raise Exception(e)
