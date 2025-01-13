@@ -187,7 +187,7 @@ class SteamHistory(Fetcher):
         LOGGER.info(f'Added "{self.added_library}" new data to the table "steam.{self.process_library}"')
 
 def main():
-    process_history, process_library = 'history', 'library'
+    process_history, process_library = 'history', 'purchased_games'
     LOGGER.info(f'Process started')
 
     try:
