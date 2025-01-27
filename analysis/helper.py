@@ -1,4 +1,6 @@
 from typing import Optional, Dict, List, Set
+import pandas as pd
+from utils.database.connector import connect_to_database
 
 PLATFORMS: List[str] = ['steam', 'playstation', 'xbox']
 COLORS: List[str] = ['#e2b35c', '#87ceeb', '#73c991']
@@ -7,7 +9,7 @@ GENRES: Set[str] = {
     'Action', 'Indie', 'Adventure', 'Casual',
     'RPG', 'Strategy', 'Sports', 'Education', 'Racing',
     'Simulation', 'Sexual Content', 'Puzzle', 'Platformer',
-    'Point & Click', 'Fighting', 'Survival'
+    'Point & Click', 'Fighting', 'Survival', 'RPG', 'Horror'
 }
 
 def format_genre(genre_name: Optional[str]) -> Optional[str]:
@@ -45,8 +47,6 @@ def format_genre(genre_name: Optional[str]) -> Optional[str]:
         'Card & Board': 'Casual', 'Casino': 'Casual', 'Collectable Card Game': 'Casual',
         'Pinball': 'Casual', 'Board Games': 'Casual', 'Collection': 'Casual',
 
-        'Free-to-play': 'Free To Play', 'Gratuitos para Jogar': 'Free To Play',
-
         '冒險': 'Adventure', 'Приключенческие игры': 'Adventure', '冒险': 'Adventure',
         'Action-Adventure': 'Adventure', 'ARCADE': 'Adventure',
 
@@ -78,3 +78,39 @@ def format_genre(genre_name: Optional[str]) -> Optional[str]:
     }
     
     return formatted_genre.get(genre_name, genre_name)
+
+def postgres_data(schema_name: str, table_name: str) -> pd.DataFrame:
+    """
+    Retrieves data from a specified table in a PostgreSQL database
+
+    Args:
+        schema_name (str): The schema in the database where the table is located
+        table_name (str): The name of the table to query
+
+    Returns:
+        pd.DataFrame: A DataFrame containing the data from the specified table
+    """
+    with connect_to_database() as connection:
+        query = """
+            SELECT *
+            FROM {schema_name}.{table_name};
+        """
+        
+        if table_name == 'history':
+            query = """
+                SELECT *
+                FROM {schema_name}.history
+                WHERE DATE_PART('YEAR', date_acquired) = '2024';
+            """
+
+        df = pd.read_sql_query(
+            query.format(schema_name=schema_name, table_name=table_name),
+            connection,
+            parse_dates=['release_date', 'date_acquired', 'created', 'posted', 'only_date']
+        ).rename(columns={
+            'game_id': 'gameid',
+            'achievement_id': 'achievementid',
+            'player_id': 'playerid'
+        })
+
+        return df
