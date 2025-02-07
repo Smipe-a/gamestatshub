@@ -14,18 +14,18 @@ GENRES: Set[str] = {
 
 def format_genre(genre_name: Optional[str]) -> Optional[str]:
     """
-    Formats the given genre name into a standardized genre category
+    Formats the given genre name into a standardized genre category.
 
-    The function accepts a genre name, capitalizes it, and then maps it to a standardized genre\\
-    using a predefined dictionary. If the genre is not found in the dictionary, it returns 
-    the original genre name
+    The function accepts a genre name, capitalizes it, and then maps it to a standardized genre  
+    using a predefined dictionary. If the genre is not found in the dictionary, it returns  
+    the original genre name.
 
     Args:
-        genre_name (Optional[str]): The genre name to be formatted
+        **genre_name (Optional[str])** - The genre name to be formatted.
 
     Returns:
-        Optional[str]: The formatted genre name or the original genre name if it was not found in the mapping,
-                       or None if the input is not a string
+        **Optional[str]** - The formatted genre name or the original genre name if it was not found in the mapping,
+                       or None if the input is not a string.
     """
     try:
         genre_name = genre_name.capitalize()
@@ -79,16 +79,125 @@ def format_genre(genre_name: Optional[str]) -> Optional[str]:
     
     return formatted_genre.get(genre_name, genre_name)
 
-def postgres_data(schema_name: str, table_name: str) -> pd.DataFrame:
+
+def define_currency(country: str) -> str:
     """
-    Retrieves data from a specified table in a PostgreSQL database
+    Determines the currency for a given country based on predefined sets of countries.
 
     Args:
-        schema_name (str): The schema in the database where the table is located
-        table_name (str): The name of the table to query
+        **country (str)** - The name of the country for which the currency needs to be determined.
 
     Returns:
-        pd.DataFrame: A DataFrame containing the data from the specified table
+        **str** - The currency code corresponding to the provided country. 
+             Possible values are 'EUR', 'GBP', 'RUB', 'JPY', or 'USD' by default.
+    """
+    eur = {
+        'Austria', 'Belgium', 'Croatia', 'Cyprus', 'Estonia',
+        'Finland', 'France', 'Germany', 'Greece', 'Poland',
+        'Ireland', 'Italy', 'Latvia', 'Lithuania', 'Luxembourg',
+        'Malta', 'Netherlands', 'Portugal', 'Sweden', 'Slovakia', 
+        'Slovenia', 'Spain'
+    }
+    gbp = {
+        'United Kingdom', 'Scotland', 'Wales',
+        'Northern Ireland', 'England'
+    }
+    rub = {
+        'Russian Federation', 'Kazakhstan', 'Uzbekistan',
+        'Ukraine', 'Kyrgyzstan', 'Armenia', 'Belarus',
+        'Moldova', 'Tajikistan', 'Turkmenistan', 'Azerbaijan'
+    }
+    jpy = {
+        'Japan'
+    }
+    
+    if country in eur:
+        return 'EUR'
+    elif country in gbp:
+        return 'GBP'
+    elif country in rub:
+        return 'RUB'
+    elif country in jpy:
+        return 'JPY'
+    
+    return 'USD'
+
+
+def assign_region(country: str) -> str:
+    """
+    Assigns a region based on the provided country.
+
+    Args:
+        **country (str)** - The name of the country to categorize.
+
+    Returns:
+        **str** - The region the country belongs to. Possible values are 'Europe', 'US & Canada', 'Asia', or 'Rest of the world'.
+    """
+    eu_countries = {
+        'Austria', 'Belgium', 'Bulgaria', 'Croatia', 'Cyprus', 'Czech Republic',
+        'Denmark', 'Estonia', 'Finland', 'France', 'Germany', 'Greece', 'Hungary',
+        'Ireland', 'Italy', 'Latvia', 'Lithuania', 'Luxembourg', 'Malta',
+        'Netherlands', 'Poland', 'Portugal', 'Romania', 'Slovakia', 'Slovenia',
+        'Spain', 'Sweden', 'Georgia', 'Iceland', 'Monaco', 'Norway', 'Serbia',
+        'Switzerland', 'United Kingdom', 'England', 'Northern Ireland', 'Wales',
+        'Scotland'
+    }
+
+    us_canada_countries = {
+        'United States', 'Canada'
+    }
+
+    asian_countries = {
+        'Afghanistan', 'Armenia', 'Azerbaijan', 'Bahrain', 'Bangladesh', 'Bhutan', 
+        'Brunei', 'Cambodia', 'China', 'India', 'Indonesia', 
+        'Iran', 'Iraq', 'Israel', 'Japan', 'Jordan', 'Kazakhstan', 'Korea', 
+        'Kuwait', 'Kyrgyzstan', 'Laos', 'Lebanon', 'Malaysia', 
+        'Maldives', 'Mongolia', 'Myanmar', 'Nepal', 'Oman', 'Pakistan', 'Palestine', 
+        'Philippines', 'Qatar', 'Russia', 'Saudi Arabia', 'Singapore', 'Sri Lanka', 
+        'Syria', 'Tajikistan', 'Thailand', 'Timor-Leste', 'Türkiye', 'Turkmenistan', 
+        'United Arab Emirates', 'Uzbekistan', 'Vietnam', 'Yemen', 'Russian Federation',
+        'Ukraine', 'Belarus', 'Moldova'
+    }
+
+    if country in eu_countries:
+        return 'Europe'
+    elif country in us_canada_countries:
+        return 'US & Canada'
+    elif country in asian_countries:
+        return 'Asia'
+    else:
+        return 'Rest of the world'
+
+
+def define_game(achievementid: str) -> int:
+    """
+    Extracts and returns the UniqueGameID from a given achievementID.
+
+    The achievementID is expected to be in the format 'UniqueGameID_NonUniqueAchievementID'.  
+    This function splits the string at the underscore ('_') and converts the first part (UniqueGameID) into an integer.
+
+    Args:
+        **achievementid (str)** - The achievementID.
+
+    Returns:
+        **int** - The UniqueGameID as an integer.
+
+    Example:
+        '12345_achievement1' -> 12345
+    """
+    return int(achievementid.split('_')[0])
+
+
+def postgres_data(schema_name: str, table_name: str, year: int = 2024) -> pd.DataFrame:
+    """
+    Retrieves data from a specified table in a PostgreSQL database.
+
+    Args:
+        **schema_name (str)** - The schema in the database where the table is located.
+        **table_name (str)** - The name of the table to query.
+
+    Returns:
+        **pd.DataFrame** - A DataFrame containing the data from the specified table.
     """
     with connect_to_database() as connection:
         query = """
@@ -97,16 +206,17 @@ def postgres_data(schema_name: str, table_name: str) -> pd.DataFrame:
         """
         
         if table_name == 'history':
-            query = """
+            query = f"""
                 SELECT *
                 FROM {schema_name}.history
-                WHERE DATE_PART('YEAR', date_acquired) = '2024';
+                WHERE DATE_PART('YEAR', date_acquired) = '{year}';
             """
 
         df = pd.read_sql_query(
             query.format(schema_name=schema_name, table_name=table_name),
             connection,
-            parse_dates=['release_date', 'date_acquired', 'created', 'posted', 'only_date']
+            parse_dates=['release_date', 'date_acquired', 'created',
+                         'posted', 'only_date']
         ).rename(columns={
             'game_id': 'gameid',
             'achievement_id': 'achievementid',
