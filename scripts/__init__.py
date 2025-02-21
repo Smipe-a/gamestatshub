@@ -37,7 +37,7 @@ class ExophaseAPI(Fetcher):
 
     @staticmethod
     def _find_best_match(target: str, candidates: List[Optional[str]],
-                         filename: str) -> Optional[str]:
+                         filename: str = '') -> Optional[str]:
         """
         Finds the best match for a target string from a list of candidates and records the results in a CSV file
 
@@ -56,11 +56,12 @@ class ExophaseAPI(Fetcher):
             
         # Record all matches with their coefficients
         # in a CSV file for further deviation plotting
-        with open(f'./resources/{filename}', mode='a', newline='', encoding='utf-8') as file:
-            writer = csv.writer(file)
-            if file.tell() == 0:
-                writer.writerow(['target', 'candidate', 'coeff'])
-            writer.writerow([target, best_match, coeff])
+        if filename:
+            with open(f'./resources/{filename}', mode='a', newline='', encoding='utf-8') as file:
+                writer = csv.writer(file)
+                if file.tell() == 0:
+                    writer.writerow(['target', 'candidate', 'coeff'])
+                writer.writerow([target, best_match, coeff])
         
         # The value of 90 was obtained empirically. At this threshold,
         # there is still a match between the target and candidate strings

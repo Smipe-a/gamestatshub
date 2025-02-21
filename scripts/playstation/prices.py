@@ -4,21 +4,21 @@ from psycopg2 import extensions, Error
 from datetime import datetime
 from bs4 import BeautifulSoup
 from pathlib import Path
-from utils.constants import (XBOX_SCHEMA, DATABASE_TABLES,
-                             XBOX_LOGS, CURRENCY)
+from utils.constants import (PLAYSTATION_SCHEMA, DATABASE_TABLES,
+                             PLAYSTATION_LOGS, CURRENCY)
 from utils.database.connector import connect_to_database, insert_data
 from utils.logger import configure_logger
 from scripts import ExophaseAPI
 
-LOGGER = configure_logger(Path(__file__).name, XBOX_LOGS)
+LOGGER = configure_logger(Path(__file__).name, PLAYSTATION_LOGS)
 
 
-class XboxPrices(ExophaseAPI):
+class PlayStationPrices(ExophaseAPI):
     def __init__(self, process: str):
         super().__init__()
         self.process = process
 
-        self.prices = 'https://psprices.com/{currency}/games/?q={query}&platform=XOne&show=games'
+        self.prices = 'https://psprices.com/{currency}/games/?q={query}&platform={platform}&show=games'
 
         # Number of records added to the 'prices' table
         self.added = 0
@@ -32,30 +32,29 @@ class XboxPrices(ExophaseAPI):
         try:
             with connection.cursor() as cursor:
                 query = f"""
-                    SELECT gameid, title
-                    FROM xbox.games
+                    SELECT gameid, title, platform
+                    FROM playstation.games
                     WHERE gameid NOT IN (SELECT gameid
-                                         FROM xbox.prices
+                                         FROM playstation.prices
                                          WHERE date_acquired = '{self._current_data()}');
                 """
                 cursor.execute(query)
-                # app[0] - appid; app[1] - title
-                return [(app[0], app[1]) for app in cursor.fetchall()]
+                # app[0] - appid; app[1] - title; app[2] - platform
+                return [(app[0], app[1], app[2]) for app in cursor.fetchall()]
         except Exception as e:
             LOGGER.error('Failed to retrieve the list of appids from the database. ' \
                          'Error: %s', str(e).strip())
             return []
 
-    def get_prices(self, connection: extensions.connection, appid: int, title: str):
+    def get_prices(self, connection: extensions.connection,
+                   appid: int, title: str, platform: str):
+        if platform == 'PS Vita':
+            platform = 'PSVita'
+        
         prices = []
-        for currency in CURRENCY['xbox']:
-            # The price data for the JP region is unavailable on the website
-            if currency == 'region-jp':
-                prices.append(None)
-                continue
-
+        for currency in CURRENCY['playstation']:
             html_content = self._request(self.prices.format(
-                currency=currency, query=self._construct_query(title)))
+                currency=currency, query=self._construct_query(title), platform=platform))
             soup = BeautifulSoup(html_content, 'html.parser')
             
             games = soup.find('div', class_='grid grid-cols-12 gap-3').find_all('div',
@@ -71,10 +70,17 @@ class XboxPrices(ExophaseAPI):
                 try:
                     candidate_price = candidate.find('span',
                         class_='inline-flex items-center space-x-0.5').text.strip().replace(',', '.')
-                    for element in {'$', '£', '€', '₽', '\xa0'}:
-                        candidate_price = candidate_price.replace(element, '')
                     
-                    candidates[candidate_title] = float(candidate_price)
+                    for element in {'$', '£', '€', '₽', '￥', '\xa0'}:
+                        candidate_price = candidate_price.replace(element, '')
+                        
+                    if currency == 'region-jp':
+                        candidate_price = candidate_price.replace('.', '')
+
+                    if candidate_price == 'Free':
+                        candidate_price = 0
+                    else:
+                        candidates[candidate_title] = float(candidate_price)
                 except AttributeError:
                     # Price not found for one of the candidates
                     pass
@@ -87,7 +93,7 @@ class XboxPrices(ExophaseAPI):
 
         try:
             # DATABASE_TABLES[5] = 'prices'
-            insert_data(connection, XBOX_SCHEMA, DATABASE_TABLES[5],
+            insert_data(connection, PLAYSTATION_SCHEMA, DATABASE_TABLES[5],
                         [[appid] + prices + [self._current_data()]])
             self.added += 1
         except (IndexError, Error) as e:
@@ -96,23 +102,23 @@ class XboxPrices(ExophaseAPI):
     def start(self):
         with connect_to_database() as connection:
             with ThreadPoolExecutor() as executor:
-                executor.map(lambda appid, title:
-                             self.get_prices(connection, appid, title),
+                executor.map(lambda appid, title, platform:
+                             self.get_prices(connection, appid, title, platform),
                              *zip(*self._get_appids(connection)))
         
-            LOGGER.info(f'Added "{self.added}" new data to the table "xbox.{self.process}"')
+            LOGGER.info(f'Added "{self.added}" new data to the table "playstation.{self.process}"')
 
 def main():
     try:
         process = 'prices'
         LOGGER.info(f'Process started')
 
-        xbox_prices = XboxPrices(process)
-        xbox_prices.start()
+        playstation_prices = PlayStationPrices(process)
+        playstation_prices.start()
     except (Exception, KeyboardInterrupt) as e:
         if str(e) == '':
             e = 'Forced termination'
         LOGGER.error(f'An unhandled exception occurred with error: {str(e).strip()}')
-        LOGGER.info(f'Added "{xbox_prices.added}" new data to the table "xbox.{process}"')
+        LOGGER.info(f'Added "{playstation_prices.added}" new data to the table "playstation.{process}"')
         
         raise Exception(e)
