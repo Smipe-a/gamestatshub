@@ -52,6 +52,10 @@ The goal of creating this dataset is to perform a comprehensive analysis and stu
 
 <h2 align="center">Install</h2>
 
+The size of the `.sql` file (3.8GB) prevents it from being uploaded to GitHub, so I uploaded it to [Google Drive](https://drive.google.com/file/d/1SSRQka3QuUzJtDQzFqgggh2lZk_b-Lgt/view?usp=drive_link)
+
+**Note:** You should have **at least 60GB** of free space when deploying the dump
+
     psql -f gamestatshub-YYYYMMDD.sql -U user
 
 <h2 align="center">Data Pipeline</h2>
